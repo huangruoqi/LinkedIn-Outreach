@@ -1,0 +1,84 @@
+(node:31670) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:31885) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:32388) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:32544) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+(node:32780) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+Error occurred in event listener
+Traceback (most recent call last):
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 207, in <lambda>
+    lambda params: self._on_frame_detached(from_channel(params["frame"])),
+  File "/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/.venv/lib/python3.10/site-packages/playwright/_impl/_page.py", line 279, in _on_frame_detached
+    self._frames.remove(frame)
+ValueError: list.remove(x): x not in list
+(node:33098) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)

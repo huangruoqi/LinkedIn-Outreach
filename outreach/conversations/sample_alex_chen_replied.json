@@ -1,0 +1,28 @@
+{
+  "prospect_id": "alex_chen_softeng",
+  "messages": [
+    {
+      "sender": "operator",
+      "text": "Hey Alex — saw your post on event-driven architecture at Stripe. We're building something similar at our company and could use someone with that background. Would love to connect.",
+      "timestamp": "2026-03-20T10:00:00Z"
+    },
+    {
+      "sender": "prospect",
+      "text": "Thanks! Happy to connect. What kind of role are you hiring for?",
+      "timestamp": "2026-03-21T14:32:00Z"
+    }
+  ],
+  "last_action": "send_connection_request",
+  "last_action_timestamp": "2026-03-20T10:00:00Z",
+  "next_action": "send_followup_message",
+  "next_action_after": "2026-03-21T14:32:00Z",
+  "connection_note": "Hey Alex — saw your post on event-driven architecture at Stripe. We're building something similar at our company and could use someone with that background. Would love to connect.",
+  "resume_path": null,
+  "email": null,
+  "meeting_link": null,
+  "stage_history": [
+    { "stage": "cold", "entered_at": "2026-03-20T00:00:00Z" },
+    { "stage": "engaged", "entered_at": "2026-03-20T10:00:00Z" },
+    { "stage": "replied", "entered_at": "2026-03-21T14:32:00Z" }
+  ]
+}

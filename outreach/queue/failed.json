@@ -1,0 +1,13 @@
+{
+  "failed": [
+    {
+      "prospect_id": "alex_chen_softeng",
+      "action": "send_connection_request",
+      "priority": 1,
+      "added_at": "2026-03-24T00:00:00Z",
+      "run_after": null,
+      "finished_at": "2026-03-26T04:57:19.355189+00:00",
+      "note": "[Errno 2] No such file or directory: '/Users/ruoqihuang/Claude/Projects/LinkedIn Outreach/outreach/prospects/alex_chen_softeng.json'"
+    }
+  ]
+}
