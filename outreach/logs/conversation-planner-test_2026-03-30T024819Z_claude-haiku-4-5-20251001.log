@@ -1,0 +1,270 @@
+
+======================================================================
+conversation-planner test run
+  Model:     claude-haiku-4-5-20251001
+  Timestamp: 2026-03-30T02:48:19.845285+00:00
+  Tests:     7
+======================================================================
+
+────────────────────────────────────────────────────────────
+TEST: Step 1 — Cold prospect, connection request
+  Prospect:     prospect_alex.json
+  Conversation: conv_step1_cold.json
+
+  Raw response (480 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "pending_connection",
+  "sequence_step": 1,
+  "action": "send_connection_request",
+  "message": "Hi Alex, I'm Nova from Embedding VC—we back early-stage AI startups and connect top talent with great AI companies. Your recent post on event-driven architecture caught my attention. Open to exploring?",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-24T12:00:00Z",
+  "char_count": 226
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "pending_connection",
+  "sequence_step": 1,
+  "action": "send_connection_request",
+  "message": "Hi Alex, I'm Nova from Embedding VC\u2014we back early-stage AI startups and connect top talent with great AI companies. Your recent post on event-driven architecture caught my attention. Open to exploring?",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-24T12:00:00Z",
+  "char_count": 226
+}
+
+  PASS
+
+────────────────────────────────────────────────────────────
+TEST: Step 2 — Prospect replied, career deep-dive
+  Prospect:     prospect_alex.json
+  Conversation: conv_step2_replied.json
+
+  Raw response (555 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "engaged",
+  "sequence_step": 2,
+  "action": "send_followup_message",
+  "message": "Great question! We partner with AI teams building in reasoning, embodied AI, and ML infrastructure—companies tackling the hard distributed systems problems. Your post on event-driven architecture really resonated. How's the current work treating you? What's got you most excited right now?",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-25T09:30:00Z",
+  "char_count": 280
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "engaged",
+  "sequence_step": 2,
+  "action": "send_followup_message",
+  "message": "Great question! We partner with AI teams building in reasoning, embodied AI, and ML infrastructure\u2014companies tackling the hard distributed systems problems. Your post on event-driven architecture really resonated. How's the current work treating you? What's got you most excited right now?",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-25T09:30:00Z",
+  "char_count": 280
+}
+
+  FAIL — 1 issue(s):
+     - Message does not contain prospect's first name 'alex'
+
+────────────────────────────────────────────────────────────
+TEST: Step 3 — Career discussed, ask about plans
+  Prospect:     prospect_alex.json
+  Conversation: conv_step3_career_discussed.json
+
+  Raw response (572 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "engaged",
+  "sequence_step": 3,
+  "action": "send_followup_message",
+  "message": "That 0-to-1 feeling is addictive—and honestly, it's exactly what we see in the best founders and early hires at the companies we work with. ML infra is where a lot of that energy is right now. Are you thinking you'd want to jump into something like that soon, or still exploring what the options look like?",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-26T12:00:00Z",
+  "char_count": 282
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "engaged",
+  "sequence_step": 3,
+  "action": "send_followup_message",
+  "message": "That 0-to-1 feeling is addictive\u2014and honestly, it's exactly what we see in the best founders and early hires at the companies we work with. ML infra is where a lot of that energy is right now. Are you thinking you'd want to jump into something like that soon, or still exploring what the options look like?",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-26T12:00:00Z",
+  "char_count": 282
+}
+
+  FAIL — 1 issue(s):
+     - Message does not contain prospect's first name 'alex'
+
+────────────────────────────────────────────────────────────
+TEST: Step 4 — Career plan replied, the ask
+  Prospect:     prospect_alex.json
+  Conversation: conv_step4_career_plan_replied.json
+
+  Raw response (533 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "engaged",
+  "sequence_step": 4,
+  "action": "send_followup_message",
+  "message": "Perfect — Series A infra ownership is exactly the kind of role we see in our network. Alex, would you be open to sharing your resume? It'll help me match you with the right teams who are specifically looking for someone with your distributed systems + ML infra combo.",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-27T10:05:00Z",
+  "char_count": 250
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "engaged",
+  "sequence_step": 4,
+  "action": "send_followup_message",
+  "message": "Perfect \u2014 Series A infra ownership is exactly the kind of role we see in our network. Alex, would you be open to sharing your resume? It'll help me match you with the right teams who are specifically looking for someone with your distributed systems + ML infra combo.",
+  "end_conversation": false,
+  "ended_reason": null,
+  "generated_at": "2026-03-27T10:05:00Z",
+  "char_count": 250
+}
+
+  PASS
+
+────────────────────────────────────────────────────────────
+TEST: Step 5 — Resume shared, the close
+  Prospect:     prospect_alex.json
+  Conversation: conv_step5_resume_shared.json
+
+  Raw response (496 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "ended",
+  "sequence_step": 5,
+  "action": "send_followup_message",
+  "message": "Perfect, Alex. Thanks for sharing your resume. I'm reviewing it now and will connect you with relevant teams in our portfolio who are building ML infra at Series A. I'll follow up early next week with some introductions.",
+  "end_conversation": true,
+  "ended_reason": "resume_received",
+  "generated_at": "2026-03-28T09:30:00Z",
+  "char_count": 224
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "ended",
+  "sequence_step": 5,
+  "action": "send_followup_message",
+  "message": "Perfect, Alex. Thanks for sharing your resume. I'm reviewing it now and will connect you with relevant teams in our portfolio who are building ML infra at Series A. I'll follow up early next week with some introductions.",
+  "end_conversation": true,
+  "ended_reason": "resume_received",
+  "generated_at": "2026-03-28T09:30:00Z",
+  "char_count": 224
+}
+
+  PASS
+
+────────────────────────────────────────────────────────────
+TEST: Edge — No reply timeout (>48h since Step 2)
+  Prospect:     prospect_alex.json
+  Conversation: conv_no_reply_timeout.json
+
+  Raw response (262 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "dead",
+  "sequence_step": 2,
+  "action": "mark_dead",
+  "message": null,
+  "end_conversation": true,
+  "ended_reason": "no_response",
+  "generated_at": "2026-03-28T14:00:00Z",
+  "char_count": null
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "dead",
+  "sequence_step": 2,
+  "action": "mark_dead",
+  "message": null,
+  "end_conversation": true,
+  "ended_reason": "no_response",
+  "generated_at": "2026-03-28T14:00:00Z",
+  "char_count": null
+}
+
+  FAIL — 1 issue(s):
+     - Expected sequence_step None, got 2
+
+────────────────────────────────────────────────────────────
+TEST: Edge — Prospect not interested
+  Prospect:     prospect_alex.json
+  Conversation: conv_not_interested.json
+
+  Raw response (270 chars):
+  ```json
+{
+  "prospect_id": "alex_chen_softeng",
+  "stage": "ended",
+  "sequence_step": null,
+  "action": "mark_ended",
+  "message": null,
+  "end_conversation": true,
+  "ended_reason": "not_interested",
+  "generated_at": "2026-03-25T11:01:00Z",
+  "char_count": null
+}
+```
+
+  Parsed PlannedMessage:
+  {
+  "prospect_id": "alex_chen_softeng",
+  "stage": "ended",
+  "sequence_step": null,
+  "action": "mark_ended",
+  "message": null,
+  "end_conversation": true,
+  "ended_reason": "not_interested",
+  "generated_at": "2026-03-25T11:01:00Z",
+  "char_count": null
+}
+
+  PASS
+
+======================================================================
+SUMMARY: 4/7 passed
+======================================================================
+
+======================================================================
+STRUCTURED RESULTS (JSONL)
+======================================================================
+{"test": "Step 1 \u2014 Cold prospect, connection request", "status": "pass", "sequence_step": 1, "action": "send_connection_request", "end_conversation": false, "ended_reason": null, "message_chars": 201, "failures": [], "timestamp": "2026-03-30T02:48:22.209475+00:00"}
+{"test": "Step 2 \u2014 Prospect replied, career deep-dive", "status": "fail", "sequence_step": 2, "action": "send_followup_message", "end_conversation": false, "ended_reason": null, "message_chars": 289, "failures": ["Message does not contain prospect's first name 'alex'"], "timestamp": "2026-03-30T02:48:24.200189+00:00", "planned_message": {"prospect_id": "alex_chen_softeng", "stage": "engaged", "sequence_step": 2, "action": "send_followup_message", "message": "Great question! We partner with AI teams building in reasoning, embodied AI, and ML infrastructure\u2014companies tackling the hard distributed systems problems. Your post on event-driven architecture really resonated. How's the current work treating you? What's got you most excited right now?", "end_conversation": false, "ended_reason": null, "generated_at": "2026-03-25T09:30:00Z", "char_count": 280}}
+{"test": "Step 3 \u2014 Career discussed, ask about plans", "status": "fail", "sequence_step": 3, "action": "send_followup_message", "end_conversation": false, "ended_reason": null, "message_chars": 306, "failures": ["Message does not contain prospect's first name 'alex'"], "timestamp": "2026-03-30T02:48:26.426033+00:00", "planned_message": {"prospect_id": "alex_chen_softeng", "stage": "engaged", "sequence_step": 3, "action": "send_followup_message", "message": "That 0-to-1 feeling is addictive\u2014and honestly, it's exactly what we see in the best founders and early hires at the companies we work with. ML infra is where a lot of that energy is right now. Are you thinking you'd want to jump into something like that soon, or still exploring what the options look like?", "end_conversation": false, "ended_reason": null, "generated_at": "2026-03-26T12:00:00Z", "char_count": 282}}
+{"test": "Step 4 \u2014 Career plan replied, the ask", "status": "pass", "sequence_step": 4, "action": "send_followup_message", "end_conversation": false, "ended_reason": null, "message_chars": 267, "failures": [], "timestamp": "2026-03-30T02:48:28.459857+00:00"}
+{"test": "Step 5 \u2014 Resume shared, the close", "status": "pass", "sequence_step": 5, "action": "send_followup_message", "end_conversation": true, "ended_reason": "resume_received", "message_chars": 220, "failures": [], "timestamp": "2026-03-30T02:48:30.913974+00:00"}
+{"test": "Edge \u2014 No reply timeout (>48h since Step 2)", "status": "fail", "sequence_step": 2, "action": "mark_dead", "end_conversation": true, "ended_reason": "no_response", "message_chars": 0, "failures": ["Expected sequence_step None, got 2"], "timestamp": "2026-03-30T02:48:32.059218+00:00", "planned_message": {"prospect_id": "alex_chen_softeng", "stage": "dead", "sequence_step": 2, "action": "mark_dead", "message": null, "end_conversation": true, "ended_reason": "no_response", "generated_at": "2026-03-28T14:00:00Z", "char_count": null}}
+{"test": "Edge \u2014 Prospect not interested", "status": "pass", "sequence_step": null, "action": "mark_ended", "end_conversation": true, "ended_reason": "not_interested", "message_chars": 0, "failures": [], "timestamp": "2026-03-30T02:48:33.371290+00:00"}
