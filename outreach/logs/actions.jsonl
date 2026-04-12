@@ -1,0 +1,11 @@
+{"action": "batch_plan_run", "timestamp": "2026-04-12T21:28:00Z", "total": 1, "sent": 0, "errors": 0, "ended": 0, "notes": "alex_chen_softeng: Step 1 sent via connection note; awaiting reply (< 48h). No action taken."}
+{"action": "batch_plan_run", "timestamp": "2026-04-12T21:30:00+00:00", "total": 1, "sent": 0, "errors": 0, "ended": 0, "skipped": 0, "waited": 1, "details": [{"prospect_id": "alex_chen_softeng", "name": "Alex Chen", "outcome": "wait", "reason": "Step 1 connection note sent today; no reply yet, less than 48 hours elapsed"}]}
+{"action": "batch_plan_run", "timestamp": "2026-04-12T21:30:00Z", "total": 1, "sent": 0, "errors": 0, "ended": 0, "waiting": 1, "notes": "alex_chen_softeng: Step 1 connection note sent today, no reply yet — waiting"}
+{"action": "message_sent", "prospect_id": "alex_chen_softeng", "timestamp": "2026-04-12T21:35:00Z", "char_count": 328, "note": "Opener DM sent at operator request"}
+{"action": "message_sent", "prospect_id": "alex_chen_softeng", "last_action": "send_followup_message", "sequence_step": 2, "timestamp": "2026-04-12T22:05:00Z"}
+{"action": "batch_plan_run", "timestamp": "2026-04-12T22:05:00Z", "total": 1, "sent": 1, "errors": 0, "ended": 0}
+{"action": "message_sent", "prospect_id": "alex_chen_softeng", "last_action": "send_followup_message", "sequence_step": 3, "timestamp": "2026-04-12T22:35:44Z"}
+{"action": "batch_plan_run", "timestamp": "2026-04-12T22:35:44Z", "total": 1, "sent": 1, "errors": 0, "ended": 0, "skipped": 0}
+{"action": "message_sent", "prospect_id": "alex_chen_softeng", "last_action": "send_followup_message", "sequence_step": 5, "timestamp": "2026-04-12T23:10:00Z"}
+{"action": "conversation_ended", "prospect_id": "alex_chen_softeng", "ended_reason": "resume_received", "sequence_step": 5, "timestamp": "2026-04-12T23:10:00Z"}
+{"action": "batch_plan_run", "timestamp": "2026-04-12T23:10:00Z", "total": 1, "sent": 1, "errors": 0, "ended": 1}
