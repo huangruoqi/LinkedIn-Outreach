@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from math import exp
 import os
 import re
 import shutil
@@ -140,6 +141,7 @@ async def reset_regression_artifacts(mod: Any, profile_url: str, prospect_id: st
     """Clear mock session state and on-disk mock outreach rows for a clean scenario run."""
     key = _mock.normalise_url(profile_url)
     _mock.sessions.pop(key, None)
+    _mock.clear_persisted_mock_session(profile_url)
     base: Path = mod._outreach_base()
     mod._atomic_write_json(base / "connections.json", {"connections": []})
     conv_path = base / "conversations" / f"{prospect_id}.json"
@@ -221,21 +223,18 @@ async def assert_state_after_planner_round(
     mod: Any,
     profile_url: str,
     prospect_id: str,
-    round_index: int,
+    allowed_stages: set[str],
     session: _mock.MockSession,
 ) -> None:
     import pytest
 
     raw = await mod.get_conversation(prospect_id)
     if isinstance(raw, str) and raw.startswith("error:"):
-        pytest.fail(f"round={round_index}: get_conversation failed: {raw}")
+        pytest.fail(f"get_conversation failed: {raw}")
     conv = json.loads(raw)
-    msgs = conv.get("messages") or []
-    hist_len = len(session.history)
-    if len(msgs) != hist_len:
+    if conv.get("outreach_stage") not in allowed_stages:
         pytest.fail(
-            f"round={round_index}: conversation file has {len(msgs)} messages but "
-            f"mock history has {hist_len}"
+            f"post-planner: allowed_stages={allowed_stages!r} got {conv.get('outreach_stage')!r}"
         )
 
 
@@ -245,13 +244,20 @@ def invoke_claude_cli(prompt: str) -> str:
 
     Permission mode defaults to ``bypassPermissions`` so non-interactive regression
     can call MCP tools; override with ``REGRESSION_CLAUDE_PERMISSION_MODE``.
+
+    Model defaults to Haiku 4.5 (cheaper, separate quota from Sonnet/Opus).
+    Set ``CLAUDE_MODEL`` (same as ``outreach/planner.py``) or pass ``--model haiku``
+    aliases supported by the Claude CLI.
     """
     timeout = int(os.environ.get("REGRESSION_CLAUDE_TIMEOUT_SEC", "600"))
     perm = os.environ.get("REGRESSION_CLAUDE_PERMISSION_MODE", "bypassPermissions").strip()
+    model = os.environ.get("CLAUDE_MODEL", "haiku").strip()
     cmd = [
         "claude",
         "-p",
         prompt,
+        "--model",
+        model,
         "--permission-mode",
         perm,
     ]
@@ -290,22 +296,32 @@ REGRESSION_SPECS: dict[str, dict[str, Any]] = {
             {
                 "id": "hp_r0_step1",
                 "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"replied", "engaged"}),
+                "allowed_stages": frozenset({"engaged"}),
             },
             {
                 "id": "hp_r1_step2",
                 "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"replied", "engaged"}),
+                "allowed_stages": frozenset({"engaged"}),
             },
             {
                 "id": "hp_r1_step3",
                 "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"replied", "engaged"}),
+                "allowed_stages": frozenset({"engaged"}),
             },
             {
-                "id": "hp_r2_step4",
+                "id": "hp_r1_step4",
                 "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"converted"}),
+                "allowed_stages": frozenset({"engaged"}),
+            },
+            {
+                "id": "hp_r2_step5",
+                "allowed_actions": frozenset({"send_followup_message"}),
+                "allowed_stages": frozenset({"engaged", "ended"}),
+            },
+            {
+                "id": "hp_r2_step6",
+                "allowed_actions": frozenset({"send_followup_message"}),
+                "allowed_stages": frozenset({"ended"}),
             },
         ],
         "repeat_final": True,
@@ -407,9 +423,8 @@ async def run_scenario_async(case_id: str) -> None:
     meta = REGRESSION_SPECS[case_id]
     rounds_spec: list[RoundSpec] = meta["rounds"]
     repeat_final: bool = meta["repeat_final"]
-    max_rounds = int(os.environ.get("REGRESSION_MAX_ROUNDS", "24"))
 
-    for round_index in range(max_rounds):
+    for round_index in range(len(rounds_spec)):
         if not repeat_final and round_index >= len(rounds_spec):
             pytest.fail(
                 f"{case_id}: exhausted spec rounds ({len(rounds_spec)}) at loop {round_index}"
@@ -421,8 +436,13 @@ async def run_scenario_async(case_id: str) -> None:
             invoke_claude_cli("Run conversation-planner skill")
         except Exception as exc:
             pytest.fail(f"[{spec['id']}] round={round_index} invoke_claude_cli: {exc}")
-
-    pytest.fail(f"{case_id}: exceeded max_rounds={max_rounds}")
+        session = _mock.get_session(url)
+        if session is None:
+            pytest.fail(
+                f"[{spec['id']}] round={round_index}: no mock session for {url!r}"
+            )
+        allowed_stages = spec.get("allowed_stages")
+        await assert_state_after_planner_round(mod, url, prospect_id, allowed_stages, session)
 
 
 def run_scenario(case_id: str) -> None:
