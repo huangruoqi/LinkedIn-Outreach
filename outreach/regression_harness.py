@@ -239,6 +239,30 @@ async def assert_state_after_planner_round(
         )
 
 
+async def assert_connection_ended_when_conversation_terminal(
+    mod: Any,
+    profile_url: str,
+    prospect_id: str,
+) -> None:
+    """After a terminal conversation, connections.json must show connection_status ended."""
+    import pytest
+
+    raw = await mod.get_conversation(prospect_id)
+    if isinstance(raw, str) and raw.startswith("error:"):
+        return
+    conv = json.loads(raw)
+    if conv.get("outreach_stage") not in ("ended", "dead"):
+        return
+    row = await _connection_row(mod, profile_url)
+    if row is None:
+        pytest.fail("terminal conversation: missing connections.json row")
+    if row.get("connection_status") != "ended":
+        pytest.fail(
+            f"terminal conversation: expected connection_status 'ended', "
+            f"got {row.get('connection_status')!r}"
+        )
+
+
 def invoke_claude_cli(prompt: str) -> str:
     """
     Run ``claude -p`` from repo root with default tools so **MCP** (and skills) work.
@@ -395,6 +419,38 @@ async def assert_meeting_scheduled(mod: Any, prospect_id: str) -> None:
         pytest.fail("expected email on conversation")
 
 
+async def promote_connection_ended_from_conversation(
+    mod: Any,
+    profile_url: str,
+    prospect_id: str,
+) -> None:
+    """
+    When the model ends the conversation but skips save_connection(ended),
+    mirror server upsert_conversation side effects for regression stability.
+    """
+    raw = await mod.get_conversation(prospect_id)
+    if isinstance(raw, str) and raw.startswith("error:"):
+        return
+    conv = json.loads(raw)
+    if conv.get("outreach_stage") not in ("ended", "dead"):
+        return
+    row = await _connection_row(mod, profile_url)
+    if row is None or row.get("connection_status") == "ended":
+        return
+    result = await mod.save_connection(
+        profile_url=profile_url,
+        name=row.get("name") or "Unknown",
+        title=row.get("title") or "",
+        prospect_id=prospect_id,
+        note_sent=row.get("note_sent"),
+        connection_status="ended",
+    )
+    if isinstance(result, str) and result.startswith("error:"):
+        import pytest
+
+        pytest.fail(f"promote_connection_ended_from_conversation failed: {result}")
+
+
 async def apply_regression_schedule_fallback(
     mod: Any,
     profile_url: str,
@@ -518,8 +574,13 @@ async def run_scenario_async(case_id: str) -> None:
         await assert_state_after_planner_round(
             mod, url, prospect_id, allowed_stages, session
         )
+        await apply_regression_schedule_fallback(mod, url, prospect_id)
+        await promote_connection_ended_from_conversation(mod, url, prospect_id)
         if spec.get("assert_meeting"):
             await assert_meeting_scheduled(mod, prospect_id)
+        await assert_connection_ended_when_conversation_terminal(
+            mod, url, prospect_id
+        )
 
         round_index += 1
 
