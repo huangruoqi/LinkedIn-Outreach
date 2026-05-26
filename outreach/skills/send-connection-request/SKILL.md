@@ -30,6 +30,78 @@ connection flows. Do not seed MCP upserts from fixture JSON unless the user is e
 - `end_goal` — **`schedule_meeting`** (default when omitted): steer toward a short intro call or meeting. **`obtain_resume`**: recruiting path toward sharing a resume or profile artifact (maps from legacy `target_action: request_resume`). **`none`**: warm connect only — no meeting, resume, or scheduling ask in generated copy (e.g. old friend).
 - `outreach_topic` — optional string that anchors what to talk about (overrides relying only on `notes` / profile). Examples: a specific role, product area, or “catching up after grad school.”
 
+## Preflight: Check for updates
+
+Before doing anything else, verify the local install is current and let the
+operator decide whether to update. This protects against running stale skill
+logic against a moved-on MCP server.
+
+### 0a. Call `check_for_updates`
+
+```
+Tool: check_for_updates
+```
+
+The response is a JSON object (see `tools/updater.py`):
+
+- `installed.git_short_sha`, `installed.git_branch`, `installed.project_version`
+- `remote.latest_short_sha`, `remote.latest_committed_at`, `remote.latest_message`
+- `remote.error` — populated when GitHub was unreachable (offline / rate limit)
+- `update_available` (bool), `behind_by` (int or null), `rollback_sha`
+
+### 0b. Decide what to tell the operator
+
+| Condition | Action |
+|-----------|--------|
+| `remote.error` is non-null | **Silently** continue — print a short note like `"(could not reach GitHub: <error>; continuing with installed <short_sha>)"` and skip the prompt. Never block on transient network issues. |
+| `update_available` is `false` | **Silently** continue. Optionally print one line: `"Install up to date (<short_sha>)."` |
+| `update_available` is `true` | **Pause and ask** before scraping (see below). |
+
+### 0c. Prompt the operator (only when an update is available)
+
+Print a single concise prompt that surfaces what changed and exactly how to
+apply / skip the update, then **wait for the operator's answer before
+continuing**:
+
+```
+── LinkedIn-Outreach update available ───────────────────────
+Installed : <git_short_sha> on <git_branch>
+Latest    : <remote.latest_short_sha>  (<remote.latest_committed_at>)
+Behind by : <behind_by> commit(s)
+Message   : <remote.latest_message>
+
+To update before continuing, in another terminal run:
+  make update
+
+Reply:
+  • "update"   → I'll pause here; run `make update` then say "done".
+  • "skip"     → continue with the current version.
+  • "abort"    → cancel this connection request.
+──────────────────────────────────────────────────────────────
+```
+
+Interpret the reply as follows:
+
+- **update / yes / y** — Do **not** call any further MCP tools. Wait for the
+  operator to run `make update` (which fast-forwards git, runs `uv sync`,
+  and re-syncs `~/.claude/skills`) and reply that it is done. After they
+  confirm, **re-invoke this skill from the top** so the refreshed skill /
+  server are in play. Do not silently continue against the old install.
+- **skip / no / n / continue** — Proceed to Step 1 below with the current
+  install. Add one line to the audit log so the choice is recorded:
+  ```
+  Tool: append_action_log
+    entry: {"action":"update_skipped","timestamp":"<ISO>",
+            "installed_sha":"<git_sha>","latest_sha":"<remote.latest_sha>",
+            "behind_by":<behind_by>,"skill":"send-connection-request"}
+  ```
+- **abort / cancel / quit** — Stop. Do not scrape or send. Report:
+  `"Connection request aborted at update prompt. Run `make check-update` and
+  `make update` when ready."`
+
+Never call `make update` yourself — the skill has no shell tool and the
+update flow must remain an explicit operator action.
+
 ## Steps
 
 ### 1. Scrape the profile

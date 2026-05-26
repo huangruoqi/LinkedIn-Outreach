@@ -314,6 +314,82 @@ Run `make help` to see all targets. Common ones:
 - `make logs`: tail `outreach/logs/worker.log`
 - `make test`: run exploration tests
 - `make test_conversation`: run conversation-planner tests (needs `ANTHROPIC_API_KEY`)
+- `make check-update`: read-only — show whether the local install is behind upstream
+- `make update`: fast-forward to upstream + re-sync skills + `uv sync` (local data preserved)
+
+## Keeping your install up to date
+
+The repo ships with a self-update flow so you do not have to manually copy
+files or re-run `install.sh`:
+
+```bash
+make check-update   # network-only; never modifies your files
+make update         # fast-forward + uv sync + re-sync ~/.claude/skills
+```
+
+### What `make update` does (and what it never does)
+
+`tools/updater.py` powers both targets. The flow is intentionally
+conservative:
+
+1. Verify this is a git checkout with a clean working tree (tracked files
+   only — gitignored local files are ignored, see below).
+2. Capture the current commit SHA so you always have a one-liner rollback.
+3. `git fetch origin <branch>` (default: `main`; override with
+   `make update BRANCH=other`).
+4. `git merge --ff-only` — **refuses** to rewrite local history. If you have
+   committed work that diverges from upstream, the update aborts with the
+   exact command to inspect/rebase manually.
+5. `uv sync` to refresh Python deps (skipped if `uv` is missing).
+6. Re-sync `outreach/skills/*` into `~/.claude/skills/<name>/` (skipped with
+   `make update LOCAL=1`).
+7. Append a `self_update` entry to `outreach/logs/actions.jsonl` and write a
+   detailed log line to `logs/updater.log`.
+
+### Local files that are never overwritten
+
+These paths are all gitignored, so `git pull` (and therefore `make update`)
+will never touch them:
+
+- `.env`
+- `outreach/config/persona.json`
+- `outreach/logs/actions.jsonl` and `outreach/logs/planned_messages.jsonl`
+- `outreach/connections.json`
+- `outreach/prospects/*.json`
+- `outreach/conversations/*.json`
+- `outreach/config/dashboard_routines.json`
+- `outreach/mock/**`
+
+`make update` will *append* one line to `outreach/logs/actions.jsonl` to
+record the update itself, but it never truncates the file.
+
+### Rollback
+
+The exact commit you were on before the update is printed at the end of
+every successful `make update` and persisted in `outreach/logs/actions.jsonl`
+(field `before_sha`). To roll back:
+
+```bash
+git -C <repo> reset --hard <before_sha>
+```
+
+If `make update` fails partway through, it prints the same command on stderr
+before exiting non-zero. Nothing is force-pushed, no destructive operation
+is ever performed automatically.
+
+### MCP tools
+
+The MCP server exposes read-only counterparts for use from inside a Claude
+session:
+
+- `get_installed_version` — local commit SHA, branch, pyproject version, and
+  installed skill names.
+- `get_latest_version` — latest commit on upstream `main` (or `branch` arg).
+- `check_for_updates` — combined diff with `update_available`/`behind_by`.
+
+Skills can call `check_for_updates` to nudge the operator when a new version
+is published; the actual `make update` step remains an explicit shell
+action.
 
 ## Detailed Workflow Diagram
 ```mermaid

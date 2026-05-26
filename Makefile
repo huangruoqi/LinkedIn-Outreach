@@ -11,6 +11,8 @@
 #  make install    Install Python dependencies + Playwright browsers
 #  make claude-install   Sync skills + register MCP (default: user scope + ~/.claude/skills; LOCAL=1: local MCP only)
 #  make claude-cleanup   Remove linkedin MCP from user/local/project scopes; does not delete skill dirs
+#  make check-update Show whether the local install is behind upstream (read-only, network)
+#  make update     Fast-forward to upstream + re-sync skills/deps (local config/data preserved)
 #  make web          Outreach dashboard (http://127.0.0.1:3847); see docs/web-dashboard.md
 #  make stop-web     Stop dashboard started by install.sh or background uvicorn
 #  make logs       Tail the worker output log
@@ -57,7 +59,7 @@ override CLAUDE_INSTALL_LOCAL := $(LOCAL)
 endif
 
 .PHONY: run browser server stop stop-web test test_conversation regression smoke install logs queue status help web \
-	claude-install claude-cleanup
+	claude-install claude-cleanup check-update update
 
 # ── Default target ────────────────────────────────────────────────────────────
 
@@ -188,6 +190,30 @@ claude-cleanup: ## Remove linkedin MCP from user/local/project scopes; does not 
 	  p.is_file() or exit(); d=json.loads(p.read_text()); \
 	  (not (d.get('mcpServers') or {})) and p.unlink()" 2>/dev/null || true
 	@printf '%s\n' "Claude Code: removed MCP '$(CLAUDE_MCP_SERVER_NAME)' (user/local/project); left $(SKILL_SRC)/ and $(USER_CLAUDE_SKILLS)/ untouched"
+
+# ── Self-update ───────────────────────────────────────────────────────────────
+# Compare local install vs upstream (read-only, requires network) and apply
+# safe fast-forward updates. Local files that are gitignored — .env,
+# outreach/config/persona.json, outreach/logs/*, outreach/prospects/*.json,
+# outreach/conversations/*.json, outreach/connections.json — are never touched.
+# See tools/updater.py for the safety guarantees.
+
+# Optional: BRANCH=other-branch to target a different upstream branch.
+UPDATE_ARGS :=
+ifneq ($(BRANCH),)
+UPDATE_ARGS += --branch $(BRANCH)
+endif
+ifneq ($(LOCAL),)
+ifeq ($(LOCAL),1)
+UPDATE_ARGS += --local
+endif
+endif
+
+check-update: ## Show whether the local install is behind upstream (no changes made)
+	@python3 "$(CURDIR)/tools/updater.py" check $(UPDATE_ARGS)
+
+update: ## Fast-forward to upstream, run uv sync, re-sync skills (local data preserved)
+	@python3 "$(CURDIR)/tools/updater.py" update --yes $(UPDATE_ARGS)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 

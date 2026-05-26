@@ -102,6 +102,7 @@ from mcp.server.fastmcp import FastMCP
 
 import mock as _mock                    # tools/mock.py
 import notify as _notify                # tools/notify.py
+import updater as _updater              # tools/updater.py
 from outreach.browser import LinkedInBrowser
 from rate_limits import rate_limit
 
@@ -1892,6 +1893,87 @@ async def merge_conversation_planner_identity(
             indent=2,
             ensure_ascii=False,
         )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SELF-UPDATE TOOLS (version check + safe pull; see tools/updater.py)
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+@mcp.tool()
+async def get_installed_version() -> str:
+    """
+    Return version metadata for the locally installed LinkedIn-Outreach checkout.
+
+    Inspects ``pyproject.toml`` and the git working tree (commit SHA, branch,
+    remote URL) and enumerates the skill directories that ship with this
+    install. Read-only; never modifies the workspace.
+
+    Returns
+    -------
+    str
+        JSON object with ``project_version``, ``git_sha``, ``git_short_sha``,
+        ``git_branch``, ``repo_root``, ``remote_url``, ``is_git_repo``,
+        ``skills_installed``, and ``checked_at``.
+    """
+    try:
+        info = _updater.get_installed_version()
+        return json.dumps(info.to_dict(), indent=2, ensure_ascii=False)
+    except Exception as exc:
+        logger.exception("get_installed_version failed")
+        return json.dumps({"error": str(exc)}, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+async def get_latest_version(branch: str = "") -> str:
+    """
+    Look up the latest commit on the upstream LinkedIn-Outreach branch via the
+    public GitHub API. Does **not** modify the local checkout.
+
+    ``branch`` defaults to the configured default branch (``main``). The owner
+    and repo are derived from this checkout's ``origin`` remote when present,
+    otherwise from ``LINKEDIN_OUTREACH_REPO_SLUG`` (``owner/repo``), otherwise
+    from ``huangruoqi/LinkedIn-Outreach``.
+
+    The call is best-effort: network failures or GitHub rate limits are
+    captured in the ``error`` field instead of raising. Set ``GITHUB_TOKEN``
+    in the environment to raise the unauthenticated API rate limit.
+
+    Returns
+    -------
+    str
+        JSON object with ``owner``, ``repo``, ``branch``, ``latest_sha``,
+        ``latest_short_sha``, ``latest_committed_at``, ``latest_message``,
+        ``api_url``, ``checked_at``, and (on failure) ``error``.
+    """
+    try:
+        info = _updater.get_latest_version(branch=branch or None)
+        return json.dumps(info.to_dict(), indent=2, ensure_ascii=False)
+    except Exception as exc:
+        logger.exception("get_latest_version failed")
+        return json.dumps({"error": str(exc)}, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+async def check_for_updates(branch: str = "") -> str:
+    """
+    Compare the installed commit against the upstream branch and report whether
+    a fast-forward update is available. Read-only.
+
+    Returns
+    -------
+    str
+        JSON object with ``installed``, ``remote``, ``update_available``,
+        ``behind_by``, and ``rollback_sha``. ``behind_by`` is null when the
+        upstream commit is not reachable from the local history (for example
+        the user is on a fork or has diverged).
+    """
+    try:
+        status = _updater.check_for_updates(branch=branch or None)
+        return json.dumps(status.to_dict(), indent=2, ensure_ascii=False)
+    except Exception as exc:
+        logger.exception("check_for_updates failed")
+        return json.dumps({"error": str(exc)}, indent=2, ensure_ascii=False)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
