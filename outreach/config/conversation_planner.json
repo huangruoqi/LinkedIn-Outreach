@@ -4,6 +4,45 @@
     "topic": "AI startup opportunities and career exploration",
     "value_proposition": "high-context introductions to startups where candidate background maps to real needs"
   },
+  "campaign_topics": {
+    "founder_outreach": {
+      "label": "Founder outreach",
+      "description": "Reach out to founders for partnership or portfolio fit.",
+      "tone": "concise and founder-friendly",
+      "cta": "open to a quick chat"
+    },
+    "recruiter_outreach": {
+      "label": "Recruiter outreach",
+      "description": "Talent pipeline conversations with in-house or agency recruiters.",
+      "tone": "respectful, talent-pipeline focused",
+      "cta": "share a role I think fits"
+    },
+    "investor_outreach": {
+      "label": "Investor outreach",
+      "description": "Connect with investors around thesis or portfolio collaboration.",
+      "tone": "thesis-aware and high-signal",
+      "cta": "swap notes on the space"
+    },
+    "technical_peer": {
+      "label": "Technical peer outreach",
+      "description": "Compare technical approaches with another engineer or researcher.",
+      "tone": "technical and collaborative",
+      "cta": "compare notes"
+    },
+    "customer_discovery": {
+      "label": "Customer discovery",
+      "description": "Learn about a workflow or pain point from a target user.",
+      "tone": "curious and respectful of their time",
+      "cta": "learn how you're solving this today"
+    },
+    "hiring_manager_outreach": {
+      "label": "Hiring manager outreach",
+      "description": "Introduce candidates or warm a hiring manager up to a referral.",
+      "tone": "warm and specific about the candidate value",
+      "cta": "see if it makes sense to compare hiring needs"
+    }
+  },
+  "default_campaign_topic": "founder_outreach",
   "conversation_end_goals": {
     "preferred": [
       {

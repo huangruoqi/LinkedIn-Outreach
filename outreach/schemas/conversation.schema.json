@@ -99,6 +99,13 @@
       "default": null
     },
 
+    "campaign_topic": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Snapshot of the campaign topic id used at connect time (e.g. 'founder_outreach'). Resolved from prospect.campaign_topic or the planner's default_campaign_topic and persisted so later steps reuse the same tone + CTA.",
+      "default": null
+    },
+
     "resume_path": {
       "type": ["string", "null"],
       "description": "Relative path to the saved resume file, e.g. 'outreach/storage/resumes/alex_chen_softeng.pdf'. Set by the download-resume automation skill.",

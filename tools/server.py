@@ -808,6 +808,45 @@ def _default_conversation_planner_config() -> dict:
                 "high-context introductions to startups where candidate background maps to real needs"
             ),
         },
+        "campaign_topics": {
+            "founder_outreach": {
+                "label": "Founder outreach",
+                "description": "Reach out to founders for partnership or portfolio fit.",
+                "tone": "concise and founder-friendly",
+                "cta": "open to a quick chat",
+            },
+            "recruiter_outreach": {
+                "label": "Recruiter outreach",
+                "description": "Talent pipeline conversations with in-house or agency recruiters.",
+                "tone": "respectful, talent-pipeline focused",
+                "cta": "share a role I think fits",
+            },
+            "investor_outreach": {
+                "label": "Investor outreach",
+                "description": "Connect with investors around thesis or portfolio collaboration.",
+                "tone": "thesis-aware and high-signal",
+                "cta": "swap notes on the space",
+            },
+            "technical_peer": {
+                "label": "Technical peer outreach",
+                "description": "Compare technical approaches with another engineer or researcher.",
+                "tone": "technical and collaborative",
+                "cta": "compare notes",
+            },
+            "customer_discovery": {
+                "label": "Customer discovery",
+                "description": "Learn about a workflow or pain point from a target user.",
+                "tone": "curious and respectful of their time",
+                "cta": "learn how you're solving this today",
+            },
+            "hiring_manager_outreach": {
+                "label": "Hiring manager outreach",
+                "description": "Introduce candidates or warm a hiring manager up to a referral.",
+                "tone": "warm and specific about the candidate value",
+                "cta": "see if it makes sense to compare hiring needs",
+            },
+        },
+        "default_campaign_topic": "founder_outreach",
         "conversation_end_goals": {
             "preferred": [
                 {
@@ -887,9 +926,39 @@ def _validate_conversation_planner_config(config: dict) -> str | None:
         "conversation_end_goals",
         "message_rules",
         "router",
+        "campaign_topics",
     ):
         if key in config and not isinstance(config[key], dict):
             return f"{key} must be an object"
+
+    topics = config.get("campaign_topics")
+    if isinstance(topics, dict):
+        for topic_id, topic in topics.items():
+            if not isinstance(topic_id, str) or not topic_id.strip():
+                return "campaign_topics keys must be non-empty strings"
+            if not isinstance(topic, dict):
+                return f"campaign_topics.{topic_id} must be an object"
+            for required in ("tone", "cta"):
+                val = topic.get(required)
+                if not isinstance(val, str) or not val.strip():
+                    return (
+                        f"campaign_topics.{topic_id}.{required} must be a non-empty string"
+                    )
+            for optional in ("label", "description"):
+                if optional in topic and not isinstance(topic[optional], str):
+                    return (
+                        f"campaign_topics.{topic_id}.{optional} must be a string when provided"
+                    )
+
+    default_topic = config.get("default_campaign_topic")
+    if default_topic is not None:
+        if not isinstance(default_topic, str) or not default_topic.strip():
+            return "default_campaign_topic must be a non-empty string"
+        if isinstance(topics, dict) and default_topic not in topics:
+            return (
+                f"default_campaign_topic {default_topic!r} is not defined in "
+                "campaign_topics"
+            )
 
     for key in ("connection_note_char_limit", "followup_char_limit"):
         value = (

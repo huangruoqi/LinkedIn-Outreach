@@ -112,6 +112,13 @@
       "default": null
     },
 
+    "campaign_topic": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Campaign topic id (e.g. 'founder_outreach', 'technical_peer') that selects tone + CTA from planner config 'campaign_topics'. Must match a defined id; unknown ids fail validation. When omitted, the planner falls back to 'default_campaign_topic'.",
+      "default": null
+    },
+
     "target_action": {
       "type": ["string", "null"],
       "enum": ["request_resume", "schedule_call", "general_outreach", null],
