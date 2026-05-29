@@ -4,20 +4,23 @@ Local regression harness: models the real operator pipeline order:
 1. **LinkedIn connection** — Harness calls MCP ``send_connection_request`` (mock-backed) plus
    ``upsert_prospect`` / ``save_connection`` with ``pending`` after ``handle_load_test_case``
    (same as prod / operator pipeline).
-2. **sync-pending-connections** — ``claude -p`` runs the **sync-pending-connections** skill;
-   the harness then calls ``promote_pending_connections_from_mock`` so ``connections.json``
-   matches mock ``is_first_degree_connection`` even if the subprocess did not invoke MCP.
-3. **conversation-planner rounds** — ``claude -p`` runs **conversation-planner** in **batch
-   mode** (no ``prospect_id``); the skill discovers candidates via MCP ``get_connections``.
-   The harness still applies ``send_*`` from the parsed PlannedMessage and snapshots
-   ``upsert_conversation`` from the mock thread (plan-only inside ``claude -p`` avoids
-   double delivery).
+2. **Connection sync** — direct in-process call to the deterministic Python sweep
+   (``web.connection_sync_sweep.run_sync_sweep``) using a mock-backed probe. This
+   replaces the former ``sync-pending-connections`` ``claude -p`` invocation,
+   which has been retired in favour of the LLM-free dashboard sweep.
+3. **conversation-planner rounds** — ``claude -p`` runs **conversation-planner**
+   in **single-prospect mode** (``prospect_id`` supplied). The skill no longer
+   supports batch mode, so the harness drives one prospect per round explicitly.
+   The harness still applies ``send_*`` from the parsed PlannedMessage and
+   snapshots ``upsert_conversation`` from the mock thread (plan-only inside
+   ``claude -p`` avoids double delivery).
 
 ``tools/server.py`` is used in-process so paths follow ``_outreach_base()`` (e.g.
 ``outreach/mock/`` in mock mode).
 
 See: ``docs/designs/outreach-workflow-regression-tests-design.md``,
-``docs/designs/schedule-meeting-mcp-and-regression-design.md``
+``docs/designs/schedule-meeting-mcp-and-regression-design.md``,
+``docs/designs/per-connection-routines-with-backoff-design.md``
 """
 
 from __future__ import annotations
@@ -51,7 +54,8 @@ PROSPECT_FIXTURE = FIXTURES / "prospect_alex.json"
 
 # Installed skill ids (see outreach/skills/*/SKILL.md frontmatter ``name``).
 CONVERSATION_PLANNER_SKILL = "conversation-planner"
-SYNC_PENDING_CONNECTIONS_SKILL = "sync-pending-connections"
+# ``sync-pending-connections`` skill has been retired; the deterministic sweep
+# in ``web.connection_sync_sweep`` is what the dashboard uses now.
 
 # Canonical profile URL for mock sessions (matches prospect_alex.json).
 REGRESSION_PROFILE_URL = "https://www.linkedin.com/in/alex-chen-softeng/"
@@ -136,6 +140,37 @@ def _normalize_attachments(raw: Any) -> list[dict[str, Any]]:
             item["filename"] = a.get("filename")
         out.append(item)
     return out
+
+
+async def _run_regression_connection_sync(mod: Any, profile_url: str) -> None:
+    """Drive the deterministic connection sync sweep against the mock target.
+
+    Mirrors what the dashboard scheduler does in production
+    (``web.routine_scheduler._run_sync_sweep_routine``) but with a probe
+    that calls the in-process mock handler so we don't need a browser.
+    """
+    from web.connection_sync_sweep import run_sync_sweep
+
+    async def _probe(url: str) -> bool | str:
+        raw = await mod.is_first_degree_connection(url)
+        try:
+            return bool(json.loads(raw).get("first_degree", False))
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            return raw if isinstance(raw, str) else f"error: bad probe response: {raw!r}"
+
+    rcfg = {
+        "active": True,
+        "active_window_start": None,
+        "active_window_end": None,
+        "backoff": {
+            "initial_minutes": 1,
+            "multiplier": 1.0,
+            "max_minutes": 1,
+            "error_jitter": False,
+        },
+    }
+    await run_sync_sweep(rcfg, probe=_probe)
+    del profile_url  # silence unused — the sweep walks all pending rows
 
 
 async def reset_regression_artifacts(mod: Any, profile_url: str, prospect_id: str) -> None:
@@ -540,10 +575,13 @@ async def run_scenario_async(case_id: str) -> None:
     invoke_claude_cli(f"Connect to {REGRESSION_PROFILE_URL}")
     await assert_state_after_linkedin_connect(mod, url, prospect_name)
 
+    # The former "Run sync-pending-connections skill" claude -p invocation is
+    # gone — the dashboard now performs this sweep in pure Python. Drive the
+    # same code path directly so the regression matches production behaviour.
     try:
-        invoke_claude_cli("Run sync-pending-connections skill")
+        await _run_regression_connection_sync(mod, url)
     except Exception as exc:
-        pytest.fail(f"sync-pending-connections skill (claude -p): {exc}")
+        pytest.fail(f"connection sync sweep (in-process): {exc}")
 
     await assert_state_after_sync_pending(mod, case_id, url, connection_accepted)
 
@@ -562,7 +600,10 @@ async def run_scenario_async(case_id: str) -> None:
         spec = rounds_spec[spec_idx]
 
         try:
-            invoke_claude_cli("Run conversation-planner skill")
+            # Single-prospect mode is now the only mode the skill supports.
+            invoke_claude_cli(
+                f'Run conversation-planner skill for prospect_id="{prospect_id}".'
+            )
         except Exception as exc:
             pytest.fail(f"[{spec['id']}] round={round_index} invoke_claude_cli: {exc}")
         session = _mock.get_session(url)
