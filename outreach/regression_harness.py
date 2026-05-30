@@ -188,6 +188,43 @@ async def reset_regression_artifacts(mod: Any, profile_url: str, prospect_id: st
         prospect_path.unlink()
 
 
+async def seed_regression_prospect(
+    mod: Any, case_id: str, profile_url: str, prospect_id: str
+) -> None:
+    """Materialize a prospect row from the mock TEST_CASES fixture.
+
+    The ``send-connection-request`` skill writes the connection + conversation
+    rows but **not** ``prospects/<id>.json``. The conversation-planner skill
+    (single-prospect mode) requires ``get_prospect`` to succeed, so we seed
+    that file here from the same scripted prospect data ``scrape_profile``
+    would return for this case in mock mode. This mirrors what the operator
+    would have in production after a real scrape, without spinning a
+    browser.
+    """
+    tc = _mock.TEST_CASES[case_id]
+    fixture: dict[str, Any] = dict(tc.get("prospect") or {})
+    prospect = {
+        "id": prospect_id,
+        "linkedin_url": profile_url,
+        "name": fixture.get("name") or "Prospect",
+        "title": fixture.get("title"),
+        "company": fixture.get("company"),
+        "location": fixture.get("location"),
+        "connection_degree": fixture.get("connection_degree", 2),
+        "mutual_connections": list(fixture.get("mutual_connections") or []),
+        "recent_posts": list(fixture.get("recent_posts") or []),
+        "connection_status": "pending",
+        "outreach_stage": "pending_connection",
+        "end_goal": "schedule_meeting",
+        "outreach_topic": "Series A ML infra roles in the portfolio",
+        "notes": fixture.get("about"),
+        "profile_fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+    raw = await mod.upsert_prospect(prospect_id, json.dumps(prospect))
+    if isinstance(raw, str) and raw.startswith("error:"):
+        raise RuntimeError(f"seed prospect failed: {raw}")
+
+
 def claude_cli_available() -> bool:
     return shutil.which("claude") is not None
 
@@ -565,6 +602,18 @@ async def run_scenario_async(case_id: str) -> None:
         pytest.fail(f"no REGRESSION_SPECS for case_id={case_id!r}")
 
     mod = get_server_module()
+
+    # Hard guard: never run the regression against live LinkedIn. The mock
+    # path returns scripted responses from ``tools/mock.py`` and writes to
+    # ``outreach/mock/``; live mode would talk to the real browser session
+    # and corrupt the operator's connection list.
+    if not mod._mock_mcp_enabled():
+        pytest.fail(
+            "Regression requires mock MCP mode. "
+            "Edit tools/server.py::_mock_mcp_enabled to return True before running "
+            "`make regression` (or set this via env once that knob is wired up)."
+        )
+
     url = REGRESSION_PROFILE_URL
     prospect_id = PROSPECT_ID
     tc = _mock.TEST_CASES[case_id]
@@ -574,6 +623,14 @@ async def run_scenario_async(case_id: str) -> None:
     await reset_regression_artifacts(mod, url, prospect_id)
     invoke_claude_cli(f"Connect to {REGRESSION_PROFILE_URL}")
     await assert_state_after_linkedin_connect(mod, url, prospect_name)
+
+    # Seed the prospect row from the mock fixture. The send-connection-request
+    # skill writes connections.json + conversations/<id>.json but not
+    # prospects/<id>.json; the per-prospect conversation-planner needs that
+    # file to exist (it aborts on ``error: prospect not found``). In real
+    # operator flows the prospect file is populated by ``scrape_profile`` /
+    # ``parse_profile`` upstream of the connect step.
+    await seed_regression_prospect(mod, case_id, url, prospect_id)
 
     # The former "Run sync-pending-connections skill" claude -p invocation is
     # gone — the dashboard now performs this sweep in pure Python. Drive the
