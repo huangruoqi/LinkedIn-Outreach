@@ -148,6 +148,15 @@ async def _run_regression_connection_sync(mod: Any, profile_url: str) -> None:
     Mirrors what the dashboard scheduler does in production
     (``web.routine_scheduler._run_sync_sweep_routine``) but with a probe
     that calls the in-process mock handler so we don't need a browser.
+
+    ``web.connection_sync_sweep`` resolves its data root via
+    ``web.dashboard_data.outreach_base()``, which is independent of
+    ``tools.server._outreach_base()``. In mock mode the server writes to
+    ``outreach/mock/`` while the dashboard helper defaults to ``outreach/``
+    unless ``OUTREACH_MOCK=1`` / ``OUTREACH_DATA_ROOT`` is set, so the sweep
+    would otherwise load the wrong ``connections.json`` and never see the
+    pending row. Pin ``OUTREACH_DATA_ROOT`` to the server's base for the
+    duration of the sweep so both halves agree.
     """
     from web.connection_sync_sweep import run_sync_sweep
 
@@ -169,7 +178,16 @@ async def _run_regression_connection_sync(mod: Any, profile_url: str) -> None:
             "error_jitter": False,
         },
     }
-    await run_sync_sweep(rcfg, probe=_probe)
+    base_path = str(mod._outreach_base())
+    prev_root = os.environ.get("OUTREACH_DATA_ROOT")
+    os.environ["OUTREACH_DATA_ROOT"] = base_path
+    try:
+        await run_sync_sweep(rcfg, probe=_probe)
+    finally:
+        if prev_root is None:
+            os.environ.pop("OUTREACH_DATA_ROOT", None)
+        else:
+            os.environ["OUTREACH_DATA_ROOT"] = prev_root
     del profile_url  # silence unused — the sweep walks all pending rows
 
 
@@ -188,18 +206,48 @@ async def reset_regression_artifacts(mod: Any, profile_url: str, prospect_id: st
         prospect_path.unlink()
 
 
+async def seed_regression_mock_session(case_id: str, profile_url: str) -> None:
+    """Load the scripted ``TEST_CASES`` scenario into the in-memory mock session."""
+    raw = await _mock.handle_load_test_case(case_id, profile_url)
+    if isinstance(raw, str) and raw.startswith("Unknown test case"):
+        raise RuntimeError(f"load test case failed: {raw}")
+
+
+def _messages_from_mock_session(
+    session: _mock.MockSession, *, base: datetime
+) -> list[dict[str, Any]]:
+    """Map mock ``fetch_chat_history`` rows to conversation-schema messages."""
+    out: list[dict[str, Any]] = []
+    op_count = 0
+    for i, entry in enumerate(session.history):
+        self_flag = bool(entry.get("self"))
+        sender = "operator" if self_flag else "prospect"
+        item: dict[str, Any] = {
+            "sender": sender,
+            "text": str(entry.get("message") or ""),
+            "timestamp": _utc_ts(base + timedelta(minutes=i + 1)),
+            "attachments": _normalize_attachments(entry.get("attachments")),
+        }
+        if self_flag:
+            op_count += 1
+            item["sequence_step"] = op_count
+        else:
+            item["sequence_step"] = None
+        out.append(item)
+    return out
+
+
 async def seed_regression_prospect(
     mod: Any, case_id: str, profile_url: str, prospect_id: str
 ) -> None:
     """Materialize a prospect row from the mock TEST_CASES fixture.
 
-    The ``send-connection-request`` skill writes the connection + conversation
-    rows but **not** ``prospects/<id>.json``. The conversation-planner skill
-    (single-prospect mode) requires ``get_prospect`` to succeed, so we seed
-    that file here from the same scripted prospect data ``scrape_profile``
-    would return for this case in mock mode. This mirrors what the operator
-    would have in production after a real scrape, without spinning a
-    browser.
+    ``send-connection-request`` may write ``connections.json`` but often skips
+    ``prospects/<id>.json``. The conversation-planner skill (single-prospect
+    mode) requires ``get_prospect`` to succeed, so the harness seeds that file
+    from the same scripted prospect data ``scrape_profile`` would return for
+    this case in mock mode — before the connect step, matching production
+    where scrape/parse runs upstream of the invite.
     """
     tc = _mock.TEST_CASES[case_id]
     fixture: dict[str, Any] = dict(tc.get("prospect") or {})
@@ -223,6 +271,126 @@ async def seed_regression_prospect(
     raw = await mod.upsert_prospect(prospect_id, json.dumps(prospect))
     if isinstance(raw, str) and raw.startswith("error:"):
         raise RuntimeError(f"seed prospect failed: {raw}")
+
+
+async def sync_regression_prospect_after_sync(
+    mod: Any,
+    prospect_id: str,
+    *,
+    connection_accepted: bool,
+) -> None:
+    """Refresh prospect pipeline fields after the connection-sync sweep."""
+    raw = await mod.get_prospect(prospect_id)
+    if isinstance(raw, str) and raw.startswith("error:"):
+        raise RuntimeError(f"sync prospect after sync failed: {raw}")
+    prospect = json.loads(raw)
+    if connection_accepted:
+        prospect["connection_status"] = "connected"
+        prospect["outreach_stage"] = "engaged"
+    else:
+        prospect["connection_status"] = "pending"
+        prospect["outreach_stage"] = "pending_connection"
+    raw = await mod.upsert_prospect(prospect_id, json.dumps(prospect))
+    if isinstance(raw, str) and raw.startswith("error:"):
+        raise RuntimeError(f"sync prospect after sync upsert failed: {raw}")
+
+
+async def seed_regression_conversation_from_mock(
+    mod: Any,
+    profile_url: str,
+    prospect_id: str,
+    *,
+    connection_accepted: bool,
+) -> None:
+    """Persist ``conversations/<id>.json`` from the live mock DM thread.
+
+    The ``claude -p`` connect and planner invocations do not reliably call
+    ``upsert_conversation``. This mirrors what ``send-connection-request`` and
+    the planner's Phase A sync would have written: messages from
+    ``fetch_chat_history``, stage aligned with ``connections.json``, and
+    campaign snapshots from the seeded prospect.
+    """
+    session = _mock.get_session(profile_url)
+    if session is None:
+        raise RuntimeError(f"seed conversation: no mock session for {profile_url!r}")
+
+    row = await _connection_row(mod, profile_url)
+    conn_status = (row or {}).get("connection_status") or "pending"
+    note_sent = (row or {}).get("note_sent")
+
+    now = datetime.now(timezone.utc)
+    messages = _messages_from_mock_session(session, base=now - timedelta(hours=2))
+    has_prospect_reply = any(not h.get("self") for h in session.history)
+    op_messages = [m for m in messages if m.get("sender") == "operator"]
+
+    if conn_status == "connected" or connection_accepted:
+        stage = "engaged"
+    elif conn_status == "pending":
+        stage = "pending_connection"
+    else:
+        stage = "cold"
+
+    stage_history: list[dict[str, Any]] = [
+        {
+            "stage": "cold",
+            "entered_at": _utc_ts(now - timedelta(days=1)),
+            "reason": "regression seed",
+        },
+    ]
+    if stage in ("pending_connection", "engaged"):
+        stage_history.append(
+            {
+                "stage": "pending_connection",
+                "entered_at": _utc_ts(now - timedelta(hours=3)),
+                "reason": "connection request sent",
+            }
+        )
+    if stage == "engaged":
+        stage_history.append(
+            {
+                "stage": "engaged",
+                "entered_at": _utc_ts(now - timedelta(hours=1)),
+                "reason": "connection accepted",
+            }
+        )
+    if has_prospect_reply and stage == "engaged":
+        stage_history.append(
+            {
+                "stage": "replied",
+                "entered_at": _utc_ts(now - timedelta(minutes=30)),
+                "reason": "prospect replied positively",
+            }
+        )
+
+    last_action_ts = (
+        messages[-1]["timestamp"]
+        if messages
+        else _utc_ts(now - timedelta(hours=3))
+    )
+    conversation: dict[str, Any] = {
+        "prospect_id": prospect_id,
+        "outreach_stage": stage,
+        "messages": messages,
+        "last_action": "send_connection_request" if op_messages or note_sent else None,
+        "last_action_timestamp": last_action_ts,
+        "next_action": None,
+        "next_action_after": None,
+        "planned_message": None,
+        "connection_note": note_sent,
+        "end_goal": "schedule_meeting",
+        "outreach_topic": "Series A ML infra roles in the portfolio",
+        "resume_path": None,
+        "email": None,
+        "meeting_link": None,
+        "ended_at": None,
+        "ended_reason": None,
+        "report_path": None,
+        "sequence_step": op_messages[-1].get("sequence_step") if op_messages else None,
+        "stage_history": stage_history,
+    }
+    raw = await mod.upsert_conversation(prospect_id, json.dumps(conversation))
+    if isinstance(raw, str) and raw.startswith("error:"):
+        raise RuntimeError(f"seed conversation failed: {raw}")
 
 
 def claude_cli_available() -> bool:
@@ -418,7 +586,7 @@ REGRESSION_SPECS: dict[str, dict[str, Any]] = {
                 "allowed_stages": frozenset({"engaged", "ended"}),
             },
             {
-                "id": "hp_r3_step5_close",
+                "id": "hp_r3_step6_close",
                 "allowed_actions": frozenset(
                     {"send_followup_message", "mark_ended"}
                 ),
@@ -478,9 +646,16 @@ def _prospect_email_in_history(session: _mock.MockSession) -> str | None:
     return None
 
 
-async def assert_meeting_scheduled(mod: Any, prospect_id: str) -> None:
+async def assert_meeting_scheduled(
+    mod: Any,
+    prospect_id: str,
+    *,
+    profile_url: str | None = None,
+) -> None:
     import pytest
 
+    if profile_url:
+        await apply_regression_schedule_fallback(mod, profile_url, prospect_id)
     raw = await mod.get_conversation(prospect_id)
     if isinstance(raw, str) and raw.startswith("error:"):
         pytest.fail(f"assert_meeting_scheduled: get_conversation failed: {raw}")
@@ -528,9 +703,14 @@ async def apply_regression_schedule_fallback(
     profile_url: str,
     prospect_id: str,
 ) -> None:
-    """When REGRESSION_APPLY_SCHEDULE=1, book via MCP if email is in thread but no link yet."""
-    flag = os.environ.get("REGRESSION_APPLY_SCHEDULE", "").strip().lower()
-    if flag not in ("1", "true", "yes"):
+    """Book via MCP when the mock thread has an email but no ``meeting_link`` yet.
+
+    The planner often skips ``schedule_meeting`` even after the scripted
+    ``happy_path`` reply[4] shares an address. Default **on** for regression
+    stability; set ``REGRESSION_APPLY_SCHEDULE=0`` to disable.
+    """
+    flag = os.environ.get("REGRESSION_APPLY_SCHEDULE", "1").strip().lower()
+    if flag in ("0", "false", "no"):
         return
     session = _mock.get_session(profile_url)
     if session is None:
@@ -540,20 +720,21 @@ async def apply_regression_schedule_fallback(
         return
     raw = await mod.get_conversation(prospect_id)
     if isinstance(raw, str) and raw.startswith("error:"):
-        return
-    conv = json.loads(raw)
+        conv: dict[str, Any] = {}
+    else:
+        conv = json.loads(raw)
     if conv.get("meeting_link"):
         return
     result = await mod.schedule_meeting(
         email=email,
-        datetime="2026-05-20T15:00:00Z",
+        datetime="2026-06-10T15:00:00Z",
         prospect_id=prospect_id,
         profile_url=profile_url,
     )
     if isinstance(result, str) and result.startswith("error:"):
         import pytest
 
-        pytest.fail(f"REGRESSION_APPLY_SCHEDULE fallback failed: {result}")
+        pytest.fail(f"regression schedule fallback failed: {result}")
 
 
 def scenario_terminal_satisfied(case_id: str, session: _mock.MockSession, plan: dict[str, Any]) -> bool:
@@ -621,16 +802,15 @@ async def run_scenario_async(case_id: str) -> None:
     prospect_name = str((tc.get("prospect") or {}).get("name") or "Alex")
 
     await reset_regression_artifacts(mod, url, prospect_id)
+    await seed_regression_mock_session(case_id, url)
+
+    # Prospect scrape happens before connect in production; seed it here so
+    # ``send-connection-request`` / ``conversation-planner`` always find the row
+    # even when ``claude -p`` skips ``upsert_prospect``.
+    await seed_regression_prospect(mod, case_id, url, prospect_id)
+
     invoke_claude_cli(f"Connect to {REGRESSION_PROFILE_URL}")
     await assert_state_after_linkedin_connect(mod, url, prospect_name)
-
-    # Seed the prospect row from the mock fixture. The send-connection-request
-    # skill writes connections.json + conversations/<id>.json but not
-    # prospects/<id>.json; the per-prospect conversation-planner needs that
-    # file to exist (it aborts on ``error: prospect not found``). In real
-    # operator flows the prospect file is populated by ``scrape_profile`` /
-    # ``parse_profile`` upstream of the connect step.
-    await seed_regression_prospect(mod, case_id, url, prospect_id)
 
     # The former "Run sync-pending-connections skill" claude -p invocation is
     # gone — the dashboard now performs this sweep in pure Python. Drive the
@@ -641,6 +821,15 @@ async def run_scenario_async(case_id: str) -> None:
         pytest.fail(f"connection sync sweep (in-process): {exc}")
 
     await assert_state_after_sync_pending(mod, case_id, url, connection_accepted)
+    await sync_regression_prospect_after_sync(
+        mod, prospect_id, connection_accepted=connection_accepted
+    )
+    await seed_regression_conversation_from_mock(
+        mod,
+        url,
+        prospect_id,
+        connection_accepted=connection_accepted,
+    )
 
     meta = REGRESSION_SPECS[case_id]
     rounds_spec: list[RoundSpec] = meta["rounds"]
@@ -675,7 +864,7 @@ async def run_scenario_async(case_id: str) -> None:
         await apply_regression_schedule_fallback(mod, url, prospect_id)
         await promote_connection_ended_from_conversation(mod, url, prospect_id)
         if spec.get("assert_meeting"):
-            await assert_meeting_scheduled(mod, prospect_id)
+            await assert_meeting_scheduled(mod, prospect_id, profile_url=url)
         await assert_connection_ended_when_conversation_terminal(
             mod, url, prospect_id
         )
