@@ -703,33 +703,36 @@ async def apply_regression_schedule_fallback(
 def scenario_terminal_satisfied(case_id: str, session: _mock.MockSession, plan: dict[str, Any]) -> bool:
     if plan.get("end_conversation") or plan.get("action") in ("mark_ended", "mark_dead"):
         return True
+
     fixture = get_fixture(case_id) or {}
     terminal = fixture.get("terminal") or {}
-    ended_reason = terminal.get("ended_reason")
-    if ended_reason and plan.get("ended_reason") == ended_reason:
+
+    ended_reason = plan.get("ended_reason")
+    if terminal.get("ended_reason") and ended_reason == terminal.get("ended_reason"):
         return True
-    if case_id == "happy_path":
-        if plan.get("end_conversation") and plan.get("action") in (
-            "mark_ended",
-            "mark_dead",
-        ):
-            return True
-    if case_id == "eager_referral" and _prospect_has_resume_in_history(session):
+    if ended_reason in (terminal.get("ended_reasons") or []):
         return True
-    if case_id == "not_interested":
-        if plan.get("ended_reason") == "not_interested":
-            return True
-        for e in session.history:
-            if not e.get("self") and "not looking" in (e.get("message") or "").lower():
-                if plan.get("action") in ("mark_dead", "mark_ended"):
+
+    if terminal.get("require_resume_attachment") and _prospect_has_resume_in_history(session):
+        return True
+
+    phrase = terminal.get("prospect_phrase")
+    if phrase:
+        needle = str(phrase).lower()
+        for entry in session.history:
+            if entry.get("self"):
+                continue
+            if needle in (entry.get("message") or "").lower():
+                actions = terminal.get("accept_actions") or ["mark_dead", "mark_ended"]
+                if plan.get("action") in actions:
                     return True
-    if case_id == "no_reply" and plan.get("ended_reason") in (
-        "no_response",
-        "no_response_timeout",
-    ):
+                if ended_reason == terminal.get("ended_reason"):
+                    return True
+
+    accept_actions = terminal.get("accept_actions")
+    if accept_actions and plan.get("action") in accept_actions:
         return True
-    if case_id == "ghosted_cold" and plan.get("action") in ("mark_dead", "mark_ended"):
-        return True
+
     return False
 
 
@@ -775,7 +778,7 @@ async def run_scenario_async(case_id: str) -> None:
     # even when ``claude -p`` skips ``upsert_prospect``.
     await seed_regression_prospect(mod, case_id, url, prospect_id)
 
-    invoke_claude_cli(f"Connect to {REGRESSION_PROFILE_URL}")
+    invoke_claude_cli(f"Connect to {url}")
     await assert_state_after_linkedin_connect(mod, url, prospect_name)
 
     # The former "Run sync-pending-connections skill" claude -p invocation is
