@@ -48,6 +48,10 @@ if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
 import mock as _mock  # noqa: E402  — tools/mock.py
+from outreach.mock.fixtures_loader import (  # noqa: E402
+    get_fixture,
+    load_regression_specs,
+)
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "conversation-planner"
 PROSPECT_FIXTURE = FIXTURES / "prospect_alex.json"
@@ -552,51 +556,10 @@ def invoke_claude_cli(prompt: str) -> str:
         )
     return proc.stdout or ""
 
-# Transition specs: allowed_actions are sets; optional checks keep models from drifting too far.
+# Transition specs: loaded from outreach/mock/fixtures/*.json
 RoundSpec = dict[str, Any]
 
-REGRESSION_SPECS: dict[str, dict[str, Any]] = {
-    "happy_path": {
-        "rounds": [
-            {
-                "id": "hp_r0_step1",
-                "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"engaged"}),
-            },
-            {
-                "id": "hp_r1_step2",
-                "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"engaged"}),
-            },
-            {
-                "id": "hp_r1_step3",
-                "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"engaged"}),
-            },
-            {
-                "id": "hp_r1_step4",
-                "allowed_actions": frozenset({"send_followup_message"}),
-                "allowed_stages": frozenset({"engaged"}),
-            },
-            {
-                "id": "hp_r2_step5_schedule",
-                "allowed_actions": frozenset(
-                    {"confirm_meeting", "send_followup_message"}
-                ),
-                "allowed_stages": frozenset({"engaged", "ended"}),
-            },
-            {
-                "id": "hp_r3_step6_close",
-                "allowed_actions": frozenset(
-                    {"send_followup_message", "mark_ended"}
-                ),
-                "allowed_stages": frozenset({"engaged", "ended"}),
-                "assert_meeting": True,
-            },
-        ],
-        "repeat_final": True,
-    },
-}
+REGRESSION_SPECS: dict[str, dict[str, Any]] = load_regression_specs()
 
 
 def assert_transition(
@@ -740,30 +703,36 @@ async def apply_regression_schedule_fallback(
 def scenario_terminal_satisfied(case_id: str, session: _mock.MockSession, plan: dict[str, Any]) -> bool:
     if plan.get("end_conversation") or plan.get("action") in ("mark_ended", "mark_dead"):
         return True
-    if case_id == "happy_path":
-        if plan.get("ended_reason") == "call_scheduled":
-            return True
-        if plan.get("end_conversation") and plan.get("action") in (
-            "mark_ended",
-            "mark_dead",
-        ):
-            return True
-    if case_id == "eager_referral" and _prospect_has_resume_in_history(session):
+
+    fixture = get_fixture(case_id) or {}
+    terminal = fixture.get("terminal") or {}
+
+    ended_reason = plan.get("ended_reason")
+    if terminal.get("ended_reason") and ended_reason == terminal.get("ended_reason"):
         return True
-    if case_id == "not_interested":
-        if plan.get("ended_reason") == "not_interested":
-            return True
-        for e in session.history:
-            if not e.get("self") and "not looking" in (e.get("message") or "").lower():
-                if plan.get("action") in ("mark_dead", "mark_ended"):
+    if ended_reason in (terminal.get("ended_reasons") or []):
+        return True
+
+    if terminal.get("require_resume_attachment") and _prospect_has_resume_in_history(session):
+        return True
+
+    phrase = terminal.get("prospect_phrase")
+    if phrase:
+        needle = str(phrase).lower()
+        for entry in session.history:
+            if entry.get("self"):
+                continue
+            if needle in (entry.get("message") or "").lower():
+                actions = terminal.get("accept_actions") or ["mark_dead", "mark_ended"]
+                if plan.get("action") in actions:
                     return True
-    if case_id == "no_reply" and plan.get("ended_reason") in (
-        "no_response",
-        "no_response_timeout",
-    ):
+                if ended_reason == terminal.get("ended_reason"):
+                    return True
+
+    accept_actions = terminal.get("accept_actions")
+    if accept_actions and plan.get("action") in accept_actions:
         return True
-    if case_id == "ghosted_cold" and plan.get("action") in ("mark_dead", "mark_ended"):
-        return True
+
     return False
 
 
@@ -795,8 +764,8 @@ async def run_scenario_async(case_id: str) -> None:
             "`make regression` (or set this via env once that knob is wired up)."
         )
 
-    url = REGRESSION_PROFILE_URL
-    prospect_id = PROSPECT_ID
+    url = REGRESSION_SPECS[case_id].get("profile_url") or REGRESSION_PROFILE_URL
+    prospect_id = REGRESSION_SPECS[case_id].get("prospect_id") or PROSPECT_ID
     tc = _mock.TEST_CASES[case_id]
     connection_accepted = bool(tc.get("connection_accepted"))
     prospect_name = str((tc.get("prospect") or {}).get("name") or "Alex")
@@ -809,7 +778,7 @@ async def run_scenario_async(case_id: str) -> None:
     # even when ``claude -p`` skips ``upsert_prospect``.
     await seed_regression_prospect(mod, case_id, url, prospect_id)
 
-    invoke_claude_cli(f"Connect to {REGRESSION_PROFILE_URL}")
+    invoke_claude_cli(f"Connect to {url}")
     await assert_state_after_linkedin_connect(mod, url, prospect_name)
 
     # The former "Run sync-pending-connections skill" claude -p invocation is
