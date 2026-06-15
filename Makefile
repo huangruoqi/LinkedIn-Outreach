@@ -250,7 +250,7 @@ cron: ## Start the scheduler + health API in foreground (WEB_HOST / WEB_PORT)
 
 sync-version: ## Copy VERSION into pyproject.toml
 	@VER=$$(cat VERSION | tr -d '[:space:]'); \
-	uv run python -c "import pathlib, re; p=pathlib.Path('pyproject.toml'); t=p.read_text(); p.write_text(re.sub(r'(?m)^version = .+$$', 'version = \"'+'$$VER'+'\"', t))"; \
+	VER="$$VER" uv run python -c "import pathlib, re, os; v=os.environ['VER']; p=pathlib.Path('pyproject.toml'); t=p.read_text(); p.write_text(re.sub(r'(?m)^version = .+$$', 'version = \"'+v+'\"', t))"; \
 	echo "pyproject.toml version → $$VER"
 
 check-version: ## CI gate: assert VERSION and pyproject.toml match
@@ -264,6 +264,10 @@ check-version: ## CI gate: assert VERSION and pyproject.toml match
 
 check-repo-url: ## Verify install.sh, README.md, and CONTRIBUTING.md use the same repo org/name
 	@SLUG=$$(grep -oE 'github\.com/[^/]+/LinkedIn-Outreach' install.sh | head -1 | sed 's/github\.com\///'); \
+	if [ -z "$$SLUG" ]; then \
+	  echo "ERROR: could not extract repo slug from install.sh" >&2; \
+	  exit 1; \
+	fi; \
 	FAIL=0; \
 	for f in README.md CONTRIBUTING.md; do \
 	  if ! grep -q "$$SLUG" "$$f"; then \
