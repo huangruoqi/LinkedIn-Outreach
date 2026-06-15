@@ -4,6 +4,7 @@ Thanks for wanting to improve LinkedIn Outreach. This guide covers the dev setup
 
 ## Quick start
 
+<!-- REPO_URL: update when the repo moves -->
 ```bash
 git clone https://github.com/huangruoqi/LinkedIn-Outreach.git
 cd LinkedIn-Outreach
@@ -85,6 +86,18 @@ See [docs/operations.md](docs/operations.md) for the full list. Key ones:
 - Python 3.10+. No type stubs required but type hints are welcome.
 - Keep error messages clear and actionable — the operator sees them in Claude Code.
 - Rate-limiting and safety code is critical; changes there need tests.
+
+## Releasing a new version
+
+1. Update `VERSION` with the new version number.
+2. Run `make sync-version` to update `pyproject.toml`.
+3. Add an entry to `CHANGELOG.md` under the new version.
+4. Commit the changes: `git add VERSION pyproject.toml CHANGELOG.md && git commit -m "release: v<version>"`.
+5. Tag the commit: `git tag v<version>`.
+6. Push both: `git push origin main v<version>`.
+7. GitHub Actions creates the release automatically from the tag.
+
+To verify the version files are in sync before committing: `make check-version`.
 
 ## Reporting issues
 

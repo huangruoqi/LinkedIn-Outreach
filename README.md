@@ -6,6 +6,7 @@ Automation + workflow tooling for LinkedIn outreach: a LinkedIn MCP server, Clau
 
 From any directory, download and run the installer (uses [bash](https://www.gnu.org/software/bash/)):
 
+<!-- REPO_URL: update when the repo moves -->
 ```bash
 curl -fsSL https://raw.githubusercontent.com/huangruoqi/LinkedIn-Outreach/main/install.sh | bash
 ```
