@@ -20,6 +20,8 @@ outreach/browser.py          # Playwright browser automation (CDP connection)
 outreach/skills/             # Claude Code skills (Markdown prompts)
 outreach/config/             # Operator config (persona, campaign, style)
 cron/server.py               # Unattended scheduler (connection sync, DM planning)
+bin/                         # CLI utilities (upgrade check, settings, uninstall)
+.github/workflows/           # CI (test matrix) and release (tag → GitHub Release)
 testing/                     # Mock backend, regression harness, pytest suite
   tools/server.py            #   Mock-capable MCP server fork
   tools/mock.py              #   Scripted LinkedIn backend (no browser needed)

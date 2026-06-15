@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [0.0.7.0] - 2026-06-14
 
 ### Added
-- GitHub Actions CI pipeline: runs tests on every push and PR to `main` (Python 3.10 + 3.12 matrix)
+- GitHub Actions CI pipeline: every push and PR to `main` runs the test suite automatically (Python 3.10 + 3.12 matrix), so broken commits get caught before merge
 - GitHub Actions release workflow: push a `v*` tag to create a GitHub Release with changelog notes automatically
 - `make sync-version` / `make check-version` targets to keep `VERSION` and `pyproject.toml` in sync
 - `make check-repo-url` target to verify repo URLs are consistent across `install.sh`, `README.md`, and `CONTRIBUTING.md`
 - Auto-upgrade check on MCP server startup: background thread notifies when a newer version is available
-- Repo URL marker comments in `README.md` and `CONTRIBUTING.md` for easy find-and-replace when the repo moves
-- Release process documentation in `CONTRIBUTING.md`
+- `<!-- REPO_URL -->` marker comments in `README.md` and `CONTRIBUTING.md` so forkers can find-and-replace the repo URL in one pass
+- Release process documented in `CONTRIBUTING.md` — contributors can now follow a step-by-step guide to cut a release
 
 ### Fixed
 - `pyproject.toml` version now matches `VERSION` file (was `0.1.0`, corrected to track actual releases)
