@@ -21,9 +21,12 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VER="${{ github.event.inputs.version }}"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            VER="${INPUT_VERSION}"
           else
             VER="${GITHUB_REF_NAME#v}"
           fi
@@ -31,9 +34,10 @@ jobs:
           echo "tag=v${VER}" >> "$GITHUB_OUTPUT"
 
       - name: Verify VERSION file matches tag
+        env:
+          TAG_VER: ${{ steps.version.outputs.version }}
         run: |
           FILE_VER="$(tr -d '[:space:]' < VERSION)"
-          TAG_VER="${{ steps.version.outputs.version }}"
           if [ "${FILE_VER}" != "${TAG_VER}" ]; then
             echo "ERROR: VERSION file (${FILE_VER}) does not match tag (${TAG_VER})" >&2
             exit 1
@@ -42,21 +46,22 @@ jobs:
 
       - name: Extract changelog for this version
         id: changelog
+        env:
+          VER: ${{ steps.version.outputs.version }}
         run: |
-          VER="${{ steps.version.outputs.version }}"
           NOTES="$(python3 -c "
-          import re, sys
+          import re, sys, os
           text = open('CHANGELOG.md').read()
-          pattern = rf'## \[{re.escape(sys.argv[1])}\].*?\n(.*?)(?=\n## \[|\Z)'
+          ver = os.environ['VER']
+          pattern = rf'## \[{re.escape(ver)}\].*?\n(.*?)(?=\n## \[|\Z)'
           m = re.search(pattern, text, re.DOTALL)
-          print(m.group(1).strip() if m else 'Release v' + sys.argv[1])
-          " "${VER}")"
-          # Write to file to preserve newlines
+          print(m.group(1).strip() if m else 'Release v' + ver)
+          ")"
           echo "${NOTES}" > /tmp/release-notes.md
           echo "notes_file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: v${{ steps.version.outputs.version }}
